@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Footprints, Flame, Clock, TrendingUp, Calendar, Target } from "lucide-react";
 import { JourneyProgress } from "@/components/JourneyProgress";
 import { StatsCard } from "@/components/StatsCard";
-import { DeviceConnection } from "@/components/DeviceConnection";
+import { HealthSyncStatus } from "@/components/HealthSyncStatus";
 import { TrackingStatus } from "@/components/TrackingStatus";
 import { Destination } from "@/data/destinations";
 
@@ -34,8 +34,9 @@ export function HomeView({
   onConnectDevice,
   onSelectJourney,
 }: HomeViewProps) {
-  const weeklyAvg = (distanceCovered / 7).toFixed(1);
-  const streak = 12; // Mock streak
+  const weeklyAvg = distanceCovered > 0 ? (distanceCovered / 7).toFixed(1) : "0";
+  const streak = 12; // This would come from profile in real app
+  const isHealthConnected = devices.some(d => d.connected);
 
   return (
     <div className="space-y-6 pb-20">
@@ -56,6 +57,7 @@ export function HomeView({
         <JourneyProgress
           destination={currentDestination}
           distanceCovered={distanceCovered}
+          showMap={false}
         />
       ) : (
         <motion.button
@@ -81,7 +83,7 @@ export function HomeView({
       )}
 
       {/* Tracking Status */}
-      <TrackingStatus isTracking={true} lastSync={new Date()} />
+      <TrackingStatus isTracking={isHealthConnected} lastSync={new Date()} />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 gap-4">
@@ -138,8 +140,11 @@ export function HomeView({
         <div className="text-3xl">🔥</div>
       </motion.div>
 
-      {/* Device Connections */}
-      <DeviceConnection devices={devices} onConnect={onConnectDevice} />
+      {/* Health Sync Status (replaces Device Connection) */}
+      <HealthSyncStatus
+        isConnected={isHealthConnected}
+        onConnect={() => onConnectDevice("apple-watch")}
+      />
     </div>
   );
 }
