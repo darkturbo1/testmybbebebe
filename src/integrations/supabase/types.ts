@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          apple_health_connected: boolean | null
+          avatar_url: string | null
+          created_at: string | null
+          current_destination_id: string | null
+          current_streak: number | null
+          daily_step_goal: number | null
+          distance_covered: number | null
+          email: string | null
+          fitness_level:
+            | Database["public"]["Enums"]["fitness_experience"]
+            | null
+          full_name: string | null
+          id: string
+          journeys_completed: number | null
+          longest_streak: number | null
+          onboarding_completed: boolean | null
+          total_active_minutes: number | null
+          total_calories: number | null
+          total_steps: number | null
+          updated_at: string | null
+          weekly_goal: Database["public"]["Enums"]["weekly_goal"] | null
+        }
+        Insert: {
+          apple_health_connected?: boolean | null
+          avatar_url?: string | null
+          created_at?: string | null
+          current_destination_id?: string | null
+          current_streak?: number | null
+          daily_step_goal?: number | null
+          distance_covered?: number | null
+          email?: string | null
+          fitness_level?:
+            | Database["public"]["Enums"]["fitness_experience"]
+            | null
+          full_name?: string | null
+          id: string
+          journeys_completed?: number | null
+          longest_streak?: number | null
+          onboarding_completed?: boolean | null
+          total_active_minutes?: number | null
+          total_calories?: number | null
+          total_steps?: number | null
+          updated_at?: string | null
+          weekly_goal?: Database["public"]["Enums"]["weekly_goal"] | null
+        }
+        Update: {
+          apple_health_connected?: boolean | null
+          avatar_url?: string | null
+          created_at?: string | null
+          current_destination_id?: string | null
+          current_streak?: number | null
+          daily_step_goal?: number | null
+          distance_covered?: number | null
+          email?: string | null
+          fitness_level?:
+            | Database["public"]["Enums"]["fitness_experience"]
+            | null
+          full_name?: string | null
+          id?: string
+          journeys_completed?: number | null
+          longest_streak?: number | null
+          onboarding_completed?: boolean | null
+          total_active_minutes?: number | null
+          total_calories?: number | null
+          total_steps?: number | null
+          updated_at?: string | null
+          weekly_goal?: Database["public"]["Enums"]["weekly_goal"] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +94,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      fitness_experience: "beginner" | "intermediate" | "advanced" | "athlete"
+      weekly_goal: "light" | "moderate" | "active" | "intense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +222,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      fitness_experience: ["beginner", "intermediate", "advanced", "athlete"],
+      weekly_goal: ["light", "moderate", "active", "intense"],
+    },
   },
 } as const
