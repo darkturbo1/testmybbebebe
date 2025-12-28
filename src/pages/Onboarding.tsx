@@ -47,7 +47,7 @@ export default function Onboarding() {
   const [appleHealthConnected, setAppleHealthConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { isAvailable, isAuthorized, requestAuthorization, isLoading: healthLoading } = useHealthKit();
+  const { isAvailable, isAuthorized, requestAuthorization, isLoading: healthLoading, availabilityReason, lastError } = useHealthKit();
   const isNative = Capacitor.isNativePlatform();
 
   const totalSteps = 4;
@@ -103,20 +103,31 @@ export default function Onboarding() {
   };
 
   const handleConnectAppleHealth = async () => {
-    if (isNative && isAvailable) {
+    if (isNative) {
+      if (!isAvailable) {
+        toast.error(
+          `Apple Health unavailable${availabilityReason ? `: ${availabilityReason}` : ""}`
+        );
+        return;
+      }
+
       // Real HealthKit authorization on native
       const success = await requestAuthorization();
       if (success) {
         setAppleHealthConnected(true);
         toast.success("Apple Health connected! Your steps will be synced automatically.");
       } else {
-        toast.error("Could not connect to Apple Health. Please check your settings.");
+        toast.error(
+          lastError ||
+            "Apple Health permission wasn't granted. Open the Health app → Profile → Apps → Quest Journey to enable access."
+        );
       }
-    } else {
-      // Simulate connection for web (will show native app required message)
-      setAppleHealthConnected(true);
-      toast.success("Apple Health preference saved! Install the native app to sync real data.");
+      return;
     }
+
+    // Web: save preference (native required message)
+    setAppleHealthConnected(true);
+    toast.success("Apple Health preference saved! Install the native app to sync real data.");
   };
 
   const renderStep = () => {

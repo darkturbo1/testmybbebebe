@@ -4,15 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 // Types from the @capgo/capacitor-health plugin
 type HealthDataType = 'steps' | 'distance' | 'calories' | 'heartRate' | 'weight';
 
+type AuthorizationStatus = {
+  readAuthorized: HealthDataType[];
+  readDenied: HealthDataType[];
+  writeAuthorized: HealthDataType[];
+  writeDenied: HealthDataType[];
+};
+
 interface HealthPlugin {
   isAvailable(): Promise<{ available: boolean; platform?: string; reason?: string }>;
   requestAuthorization(options: {
     read?: HealthDataType[];
     write?: HealthDataType[];
-  }): Promise<{
-    readAuthorized: HealthDataType[];
-    readDenied: HealthDataType[];
-  }>;
+  }): Promise<AuthorizationStatus>;
+  checkAuthorization(options: {
+    read?: HealthDataType[];
+    write?: HealthDataType[];
+  }): Promise<AuthorizationStatus>;
   readSamples(options: {
     dataType: HealthDataType;
     startDate?: string;
@@ -74,6 +82,8 @@ export interface HealthKitData {
 export interface HealthKitService {
   isAvailable: boolean;
   isAuthorized: boolean;
+  availabilityReason?: string | null;
+  lastError?: string | null;
   requestAuthorization: () => Promise<boolean>;
   getTodayData: () => Promise<HealthKitData | null>;
   getDataForDateRange: (startDate: Date, endDate: Date) => Promise<HealthKitData | null>;
@@ -84,33 +94,61 @@ export interface HealthKitService {
 class HealthKitServiceImpl implements HealthKitService {
   isAvailable = false;
   isAuthorized = false;
+  availabilityReason: string | null = null;
+  lastError: string | null = null;
   private syncInterval: ReturnType<typeof setInterval> | null = null;
   private onDataUpdate: ((data: HealthKitData) => void) | null = null;
 
   async initialize(): Promise<void> {
+    this.lastError = null;
+
     const plugin = await getHealthPlugin();
     if (!plugin) {
       this.isAvailable = false;
+      this.isAuthorized = false;
+      this.availabilityReason = Capacitor.isNativePlatform() ? 'plugin_not_loaded' : 'not_native';
       return;
     }
 
     try {
       const result = await plugin.isAvailable();
       this.isAvailable = result.available;
+      this.availabilityReason = result.reason ?? null;
+
+      // If available, check existing authorization status (no prompt)
+      if (this.isAvailable) {
+        try {
+          const status = await plugin.checkAuthorization({
+            read: ['steps', 'distance', 'calories'],
+            write: [],
+          });
+          this.isAuthorized = status.readAuthorized.length > 0;
+        } catch {
+          // If checkAuthorization fails, keep default false and let requestAuthorization handle it.
+          this.isAuthorized = false;
+        }
+      }
     } catch (error) {
-      console.error('Error checking HealthKit availability:', error);
+      this.lastError = error instanceof Error ? error.message : String(error);
       this.isAvailable = false;
+      this.isAuthorized = false;
     }
   }
 
   async requestAuthorization(): Promise<boolean> {
+    this.lastError = null;
+
     if (!this.isAvailable) {
+      this.lastError = this.availabilityReason || 'HealthKit is not available on this device';
       console.warn('HealthKit is not available on this device');
       return false;
     }
 
     const plugin = await getHealthPlugin();
-    if (!plugin) return false;
+    if (!plugin) {
+      this.lastError = 'plugin_not_loaded';
+      return false;
+    }
 
     try {
       const result = await plugin.requestAuthorization({
@@ -118,8 +156,16 @@ class HealthKitServiceImpl implements HealthKitService {
         write: [],
       });
       this.isAuthorized = result.readAuthorized.length > 0;
+
+      if (!this.isAuthorized) {
+        this.lastError = result.readDenied?.length
+          ? `Denied: ${result.readDenied.join(', ')}`
+          : 'Permission not granted';
+      }
+
       return this.isAuthorized;
     } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
       console.error('Error requesting HealthKit authorization:', error);
       this.isAuthorized = false;
       return false;
@@ -222,6 +268,8 @@ export const healthKitService = new HealthKitServiceImpl();
 export function useHealthKit() {
   const [isAvailable, setIsAvailable] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [availabilityReason, setAvailabilityReason] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [healthData, setHealthData] = useState<HealthKitData | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -232,6 +280,8 @@ export function useHealthKit() {
       await healthKitService.initialize();
       setIsAvailable(healthKitService.isAvailable);
       setIsAuthorized(healthKitService.isAuthorized);
+      setAvailabilityReason(healthKitService.availabilityReason ?? null);
+      setLastError(healthKitService.lastError ?? null);
       setIsLoading(false);
     }
     init();
@@ -241,8 +291,10 @@ export function useHealthKit() {
     setIsLoading(true);
     const result = await healthKitService.requestAuthorization();
     setIsAuthorized(result);
+    setAvailabilityReason(healthKitService.availabilityReason ?? null);
+    setLastError(healthKitService.lastError ?? null);
     setIsLoading(false);
-    
+
     if (result) {
       // Fetch initial data after authorization
       const data = await healthKitService.getTodayData();
@@ -251,13 +303,13 @@ export function useHealthKit() {
         setLastSyncTime(data.lastSyncTime);
       }
     }
-    
+
     return result;
   }, []);
 
   const syncNow = useCallback(async () => {
     if (!isAuthorized) return null;
-    
+
     const data = await healthKitService.getTodayData();
     if (data) {
       setHealthData(data);
@@ -281,6 +333,8 @@ export function useHealthKit() {
   return {
     isAvailable,
     isAuthorized,
+    availabilityReason,
+    lastError,
     isLoading,
     healthData,
     lastSyncTime,
