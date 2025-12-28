@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useHealthKit } from "@/services/healthKit";
 import { Capacitor } from "@capacitor/core";
+import { toast } from "sonner";
 
 interface HealthSyncStatusProps {
   isConnected: boolean;
@@ -21,6 +22,8 @@ export function HealthSyncStatus({
   const { 
     isAvailable, 
     isAuthorized, 
+    availabilityReason,
+    lastError,
     isLoading, 
     healthData, 
     lastSyncTime: syncTime,
@@ -33,11 +36,25 @@ export function HealthSyncStatus({
   const actualSteps = healthData?.steps || lastSyncedSteps || 0;
 
   const handleConnect = async () => {
-    if (isNative && isAvailable) {
-      await requestAuthorization();
-    } else {
-      onConnect();
+    if (isNative) {
+      if (!isAvailable) {
+        toast.error(
+          `Apple Health unavailable${availabilityReason ? `: ${availabilityReason}` : ""}`
+        );
+        return;
+      }
+
+      const ok = await requestAuthorization();
+      if (!ok) {
+        toast.error(
+          lastError ||
+            "Apple Health permission wasn't granted. Open the Health app → Profile → Apps → Quest Journey to enable access."
+        );
+      }
+      return;
     }
+
+    onConnect();
   };
 
   const handleSync = async () => {
