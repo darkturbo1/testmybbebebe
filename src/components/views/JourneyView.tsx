@@ -36,16 +36,17 @@ export function JourneyView({
         </h1>
         <p className="text-muted-foreground">
           {hasActiveJourney
-            ? "Track your progress to the destination"
+            ? "Track your progress on the interactive map"
             : "Pick a fantasy location and start running"}
         </p>
       </motion.div>
 
-      {/* Current Journey Progress */}
+      {/* Current Journey Progress with Map */}
       {hasActiveJourney && (
         <JourneyProgress
           destination={currentDestination}
           distanceCovered={distanceCovered}
+          showMap={true}
         />
       )}
 
