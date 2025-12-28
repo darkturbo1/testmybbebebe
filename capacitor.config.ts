@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.157052785d2346338825f3700e769e0d',
-  appName: 'testmybbebebe',
+  appId: 'com.lovable.questjourney',
+  appName: 'Quest Journey',
   webDir: 'dist',
   server: {
     url: 'https://15705278-5d23-4633-8825-f3700e769e0d.lovableproject.com?forceHideBadge=true',
