@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -15,6 +15,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useHealthKit } from "@/services/healthKit";
+import { Capacitor } from "@capacitor/core";
 
 type FitnessLevel = "beginner" | "intermediate" | "advanced" | "athlete";
 type WeeklyGoal = "light" | "moderate" | "active" | "intense";
@@ -45,7 +47,17 @@ export default function Onboarding() {
   const [appleHealthConnected, setAppleHealthConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const { isAvailable, isAuthorized, requestAuthorization, isLoading: healthLoading } = useHealthKit();
+  const isNative = Capacitor.isNativePlatform();
+
   const totalSteps = 4;
+
+  // Sync authorization state with local state
+  useEffect(() => {
+    if (isAuthorized) {
+      setAppleHealthConnected(true);
+    }
+  }, [isAuthorized]);
 
   const handleNext = () => {
     if (step < totalSteps - 1) {
@@ -90,11 +102,21 @@ export default function Onboarding() {
     }
   };
 
-  const handleConnectAppleHealth = () => {
-    // In a real native app, this would trigger HealthKit authorization
-    // For now, we'll simulate the connection
-    setAppleHealthConnected(true);
-    toast.success("Apple Health connected! Your steps will be synced automatically.");
+  const handleConnectAppleHealth = async () => {
+    if (isNative && isAvailable) {
+      // Real HealthKit authorization on native
+      const success = await requestAuthorization();
+      if (success) {
+        setAppleHealthConnected(true);
+        toast.success("Apple Health connected! Your steps will be synced automatically.");
+      } else {
+        toast.error("Could not connect to Apple Health. Please check your settings.");
+      }
+    } else {
+      // Simulate connection for web (will show native app required message)
+      setAppleHealthConnected(true);
+      toast.success("Apple Health preference saved! Install the native app to sync real data.");
+    }
   };
 
   const renderStep = () => {
@@ -274,7 +296,11 @@ export default function Onboarding() {
                 <div>
                   <p className="font-semibold text-foreground">Apple Health</p>
                   <p className="text-sm text-muted-foreground">
-                    {appleHealthConnected ? "Connected" : "Not connected"}
+                    {appleHealthConnected 
+                      ? isAuthorized 
+                        ? "Connected & syncing" 
+                        : "Preference saved"
+                      : "Not connected"}
                   </p>
                 </div>
                 {appleHealthConnected && (
@@ -287,17 +313,29 @@ export default function Onboarding() {
                   variant="gold"
                   className="w-full"
                   onClick={handleConnectAppleHealth}
+                  disabled={healthLoading}
                 >
-                  Connect Apple Health
+                  {healthLoading ? "Connecting..." : "Connect Apple Health"}
                 </Button>
               ) : (
                 <div className="rounded-lg bg-success/10 border border-success/30 p-3">
                   <p className="text-sm text-success text-center">
-                    ✓ Your steps and workouts will be synced automatically
+                    {isAuthorized 
+                      ? "✓ Your steps and workouts will be synced automatically"
+                      : "✓ Install the native iOS app to enable live syncing"}
                   </p>
                 </div>
               )}
             </div>
+
+            {!isNative && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs text-amber-600 text-center">
+                  You're viewing the web version. For real-time HealthKit syncing, 
+                  install the native iOS app on your iPhone.
+                </p>
+              </div>
+            )}
 
             <p className="text-center text-sm text-muted-foreground">
               You can skip this step and connect later in settings
